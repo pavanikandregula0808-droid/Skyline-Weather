@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skyline Weather | Analytics Dashboard</title>
+    <style>
+        :root {
+            --bg-surface: #f8f9fa;
+            --card-surface: #ffffff;
+            --text-primary: #1a1f26;
+            --text-secondary: #64748b;
+            --brand-primary: #0f172a;
+            --brand-accent: #2563eb;
+            --system-error: #dc2626;
+            --system-error-bg: #fef2f2;
+            --border-color: #e2e8f0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-surface);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .dashboard-container {
+            background: var(--card-surface);
+            padding: 2.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 460px;
+        }
+        header h1 { font-size: 1.75rem; font-weight: 700; margin: 0; color: var(--brand-primary); }
+        .subtitle { font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin: 0.25rem 0 2rem 0; }
+        .search-box { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+        #city-input { flex: 1; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.95rem; outline: none; }
+        #city-input:focus { border-color: var(--brand-accent); }
+        button { padding: 12px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: background 0.2s; }
+        #search-btn { background-color: var(--brand-primary); color: white; }
+        #search-btn:hover { background-color: var(--brand-accent); }
+        #geo-btn { background-color: #e2e8f0; color: var(--brand-primary); font-size: 1.2rem; padding: 12px 14px; display: flex; align-items: center; justify-content: center; }
+        #geo-btn:hover { background-color: #cbd5e1; }
+        .weather-hidden, .error-hidden, .spinner-hidden { display: none; }
+        .weather-visible { display: block; }
+        .error-visible { background-color: var(--system-error-bg); color: var(--system-error); padding: 12px; border-radius: 6px; margin-bottom: 1.5rem; font-size: 0.875rem; border: 1px solid rgba(220, 38, 38, 0.2); }
+        
+        /* Layout Structure Refactoring */
+        .weather-main { display: flex; justify-content: space-between; align-items: center; margin: 1rem 0; }
+        #temperature { font-size: 3.75rem; font-weight: 300; letter-spacing: -0.02em; }
+        #weather-description { font-size: 0.9rem; font-weight: 700; color: var(--brand-accent); letter-spacing: 0.05em; margin: 0 0 1.5rem 0; }
+        .divider { border: 0; border-top: 1px solid var(--border-color); margin: 0 0 1.5rem 0; }
+        
+        /* Advanced 4-Column Grid Layout */
+        .weather-details { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+        .detail-item { display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9; }
+        .detail-emoji { font-size: 1.5rem; }
+        .detail-text { display: flex; flex-direction: column; }
+        .detail-item .label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 500; }
+        .detail-item .value { font-size: 1rem; font-weight: 600; color: var(--brand-primary); margin-top: 2px; }
+        
+        #loading-spinner { width: 40px; height: 40px; position: relative; margin: 2rem auto; }
+        .spinner-visible { display: block; }
+        .double-bounce1, .double-bounce2 { width: 100%; height: 100%; border-radius: 50%; background-color: var(--brand-accent); opacity: 0.6; position: absolute; top: 0; left: 0; animation: sk-bounce 2.0s infinite ease-in-out; }
+        .double-bounce2 { animation-delay: -1.0s; }
+        @keyframes sk-bounce { 0%, 100% { transform: scale(0.0); } 50% { transform: scale(1.0); } }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header>
+            <h1>Skyline Weather</h1>
+            <p class="subtitle">Enterprise Climate Analytics Engine</p>
+        </header>
+        
+        <div class="search-box">
+            <input type="text" id="city-input" placeholder="Enter city or local town..." autocomplete="off">
+            <button id="geo-btn" title="Use Current Location">📍</button>
+            <button id="search-btn">Analyze</button>
+        </div>
+
+        <div id="error-message" class="error-hidden"></div>
+        <div id="loading-spinner" class="spinner-hidden"><div class="double-bounce1"></div><div class="double-bounce2"></div></div>
+        
+        <main id="weather-card" class="weather-hidden">
+            <h2 id="location-name">City, Country</h2>
+            <div class="weather-main">
+                <img id="weather-icon" src="" alt="Metric Icon">
+                <span id="temperature">--°C</span>
+            </div>
+            <div id="weather-description">--</div>
+            <hr class="divider">
+            
+            <!-- Upgraded 9-Point Custom Metrics Panel Panel -->
+            <div class="weather-details">
+                <div class="detail-item">
+                    <span class="detail-emoji">🌡️</span>
+                    <div class="detail-text">
+                        <span class="label">Feels Like</span>
+                        <span id="metric-feels" class="value">--</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-emoji">💧</span>
+                    <div class="detail-text">
+                        <span class="label">Humidity</span>
+                        <span id="metric-humidity" class="value">--</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-emoji">💨</span>
+                    <div class="detail-text">
+                        <span class="label">Wind Speed</span>
+                        <span id="metric-wind" class="value">--</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-emoji">⚓</span>
+                    <div class="detail-text">
+                        <span class="label">Pressure</span>
+                        <span id="metric-pressure" class="value">--</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-emoji">👁️</span>
+                    <div class="detail-text">
+                        <span class="label">Visibility</span>
+                        <span id="metric-visibility" class="value">--</span>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-emoji">🌅</span>
+                    <div class="detail-text">
+                        <span class="label">Sunrise</span>
+                        <span id="metric-sunrise" class="value">--</span>
+                    </div>
+                </div>
+                <div class="detail-item" style="grid-column: span 2;">
+                    <span class="detail-emoji">🌇</span>
+                    <div class="detail-text">
+                        <span class="label">Sunset</span>
+                        <span id="metric-sunset" class="value">--</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_KEY = '2520e3989adac306b4c91b0a360d23ac';
+        const BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
+
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const geoBtn = document.getElementById('geo-btn');
+        const weatherCard = document.getElementById('weather-card');
+        const errorMessage = document.getElementById('error-message');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        searchBtn.addEventListener('click', handleTextSearch);
+        geoBtn.addEventListener('click', handleLocalGeoSearch);
+        cityInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleTextSearch(); });
+
+        function toggleUIState(state) {
+            if (state === 'loading') {
+                loadingSpinner.className = "spinner-visible";
+                weatherCard.className = "weather-hidden";
+                errorMessage.className = "error-hidden";
+            } else if (state === 'success') {
+                loadingSpinner.className = "spinner-hidden";
+                weatherCard.className = "weather-visible";
+                errorMessage.className = "error-hidden";
+            }
+        }
+
+        function displayError(message) {
+            loadingSpinner.className = "spinner-hidden";
+            weatherCard.className = "weather-hidden";
+            errorMessage.textContent = message;
+            errorMessage.className = "error-visible";
+        }
+
+        // Epoch UNIX Converter Rule Utility
+        function formatTime(unixTimestamp, timezoneOffsetSeconds) {
+            const date = new Date((unixTimestamp + timezoneOffsetSeconds) * 1000);
+            return date.toUTCString().match(/(\d\d:\d\d)/)[0];
+        }
+
+        async function processFetch(url) {
+            try {
+                toggleUIState('loading');
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(response.status === 404 ? "Location not found." : "Telemetry link fault.");
+                
+                const data = await response.json();
+                
+                // Base Element Bindings
+                document.getElementById('location-name').textContent = `${data.name}, ${data.sys.country}`;
+                document.getElementById('temperature').textContent = `${Math.round(data.main.temp)}°C`;
+                document.getElementById('weather-description').textContent = `📝 CONDITION: ${data.weather[0].description.toUpperCase()}`;
+                document.getElementById('weather-icon').src = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+                
+                // Advanced Analytical Data Extractions
+                document.getElementById('metric-feels').textContent = `${Math.round(data.main.feels_like)}°C`;
+                document.getElementById('metric-humidity').textContent = `${data.main.humidity}%`;
+                document.getElementById('metric-wind').textContent = `${data.wind.speed} m/s`;
+                document.getElementById('metric-pressure').textContent = `${data.main.pressure} hPa`;
+                document.getElementById('metric-visibility').textContent = `${(data.visibility / 1000).toFixed(1)} km`;
+                
+                // Calculate Sunrise / Sunset values using system timezone offset adjustments
+                document.getElementById('metric-sunrise').textContent = `${formatTime(data.sys.sunrise, data.timezone)} AM`;
+                document.getElementById('metric-sunset').textContent = `${formatTime(data.sys.sunset, data.timezone)} PM`;
+                
+                toggleUIState('success');
+            } catch (err) {
+                displayError(err.message);
+            }
+        }
+
+        function handleTextSearch() {
+            const query = cityInput.value.trim();
+            if (!query) return displayError("Query parameter cannot be empty.");
+            processFetch(`${BASE_URL}?q=${encodeURIComponent(query)}&appid=${API_KEY}&units=metric`);
+        }
+
+        function handleLocalGeoSearch() {
+            if (!navigator.geolocation) return displayError("Hardware geolocation engine offline.");
+            toggleUIState('loading');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    processFetch(`${BASE_URL}?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&appid=${API_KEY}&units=metric`);
+                },
+                (err) => displayError("Local permission access rejected.")
+            );
+        }
+    </script>
+</body>
+</html>
